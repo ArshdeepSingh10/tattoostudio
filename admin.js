@@ -125,11 +125,22 @@ function renderB(){
     <div class="bm"><span>${fD(x.date)} · ${fT(x.time)}</span><span>${esc(x.design||'Own idea')}</span><a href="tel:${esc(x.phone)}">${esc(x.phone)}</a></div>${x.placement?`<small>${esc(x.placement)}</small>`:''}${x.notes?`<p class="mu">${esc(x.notes)}</p>`:''}${taken?'<small class="err">Another booking is already confirmed at this time.</small>':''}<div class="ba">${btn}</div></div>`;}).join(''):`<div class="msg">No ${BF==='All'?'':BF.toLowerCase()+' '}bookings.</div>`;
 }
 $('#bf').onclick=e=>{const b=e.target.closest('[data-f]');if(b){BF=b.dataset.f;renderB();}};
-function waOpen(x,tpl,w){const u=`https://wa.me/${wn(x.phone)}?text=${encodeURIComponent(fill(C.MSG[tpl],x))}`;
+function waOpen(x,text,w){const u=`https://wa.me/${wn(x.phone)}?text=${encodeURIComponent(text)}`;
   if(w&&!w.closed)w.location.href=u;else ask('Message ready',`Open WhatsApp to send the message to ${x.name}.`,'Open WhatsApp').then(ok=>ok&&window.open(u,'_blank'));}
+// Confirmation dialog that shows the exact WhatsApp message and lets the admin edit it. Resolves to the final text, or null if cancelled.
+function compose(title,x,tpl,okLabel,danger){return new Promise(res=>{const d=$('#cf'),def=fill(C.MSG[tpl],x);let out=null;
+  d.innerHTML=`<div class="dp cfm"><h3>${esc(title)}</h3><p><b>${esc(x.name)}</b> · ${fD(x.date)} at ${fT(x.time)}${x.design?' · '+esc(x.design):''}</p>
+  <h4>Message that will be sent on WhatsApp</h4><textarea id="cm" class="mb" rows="6" maxlength="1000"></textarea>
+  <div class="sr"><button class="btn alt" id="cr">Reset to default</button></div><small class="mu">Edit the text if you want. It opens in WhatsApp so you can check it once more before sending.</small>
+  <div class="ft"><button class="btn alt" id="cn">Cancel</button><button class="btn${danger?' red':''}" id="ck">${esc(okLabel)}</button></div></div>`;
+  const t=$('#cm');t.value=def;d.onclose=()=>res(out);
+  $('#cr').onclick=()=>{t.value=def;};
+  $('#ck').onclick=()=>{if(!t.value.trim()){t.focus();return;}out=t.value.trim();d.close();};$('#cn').onclick=()=>d.close();d.showModal();t.focus();});}
 $('#bl').onclick=async e=>{const b=e.target.closest('[data-a]');if(!b)return;const x=bks.find(y=>y.id===b.dataset.id),a=b.dataset.a;if(!x)return;
-  if(a==='msg')return waOpen(x,'reminder');
-  const M={ok:['Confirmed','confirm','Booking confirmed'],no:['Declined','decline','Booking declined'],cancel:['Cancelled','cancel','Booking cancelled'],done:['Completed',null,'Marked as completed']},[st,tpl,done]=M[a];
-  if(a==='no'||a==='cancel'){const ok=await ask(a==='no'?'Decline this booking?':'Cancel this booking?',`${x.name} · ${fD(x.date)} at ${fT(x.time)}`,a==='no'?'Decline':'Cancel booking');if(!ok)return;}
-  const w=tpl?window.open('','_blank'):null;   // opened now so the browser does not block the WhatsApp tab
-  go(b,async()=>{try{await api('setBooking',{id:x.id,status:st});x.status=st;renderB();toast(done);if(tpl)waOpen(x,tpl,w);}catch(err){if(w)w.close();throw err;}});};
+  if(a==='msg'){const t=await compose('Send reminder',x,'reminder','Open WhatsApp');if(t)waOpen(x,t);return;}
+  const M={ok:['Confirmed','confirm','Booking confirmed','Confirm booking','Confirm this booking?'],no:['Declined','decline','Booking declined','Decline booking','Decline this booking?'],cancel:['Cancelled','cancel','Booking cancelled','Cancel booking','Cancel this booking?'],done:['Completed',null,'Marked as completed']},[st,tpl,done,okL,ttl]=M[a];
+  let text=null;
+  if(tpl){text=await compose(ttl,x,tpl,okL+' & message',a!=='ok');if(!text)return;}
+  else{const ok=await ask('Mark as completed?',`${x.name} · ${fD(x.date)} at ${fT(x.time)}`,'Mark done');if(!ok)return;}
+  const w=tpl?window.open('','_blank'):null;   // opened right after the click so the browser does not block the WhatsApp tab
+  go(b,async()=>{try{await api('setBooking',{id:x.id,status:st});x.status=st;renderB();toast(done);if(tpl)waOpen(x,text,w);}catch(err){if(w)w.close();throw err;}});};
