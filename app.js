@@ -58,6 +58,7 @@ load();
 
 // ---- booking request
 let AV=null;
+const ymd=d=>new Date(d-d.getTimezoneOffset()*6e4).toISOString().slice(0,10);
 const fD=d=>new Date(d+'T12:00').toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'}),fT=t=>new Date('2000-01-01T'+t).toLocaleTimeString('en-IN',{hour:'numeric',minute:'2-digit'});
 async function post(body){const r=await fetch(C.API_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(body)});const j=await r.json();if(!j.ok)throw new Error(j.error);return j.data;}
 function bookDesign(id){$('#d').close();openB(P.find(x=>x.id===id).name);}
@@ -74,17 +75,19 @@ function formB(des){
   if(!AV.days.length){d.innerHTML=`<button class="x" data-x aria-label="Close">×</button><div class="dp"><h2>Book an appointment</h2><p class="mu">No free times are showing right now. Please message the studio.</p><a class="bt wa" href="https://wa.me/${C.WHATSAPP}" target="_blank" rel="noopener">Message on WhatsApp</a></div>`;return;}
   d.innerHTML=`<button class="x" data-x aria-label="Close">×</button><div class="dp"><h2>Book an appointment</h2><p class="mu">Pick a date and time. Your request is confirmed only when the studio replies.</p>
   <div class="og"><label>Design</label><select id="bd"><option value="">My own idea / not sure yet</option>${P.map(p=>`<option${p.name===des?' selected':''}>${esc(p.name)}</option>`).join('')}</select></div>
-  <div class="og"><label>Date</label><div class="chs" id="bdt">${AV.days.map(x=>`<button type="button" class="ch" data-d="${x.date}">${fD(x.date)}</button>`).join('')}</div></div>
-  <div class="og"><label>Time</label><div class="chs" id="btm"><small>Choose a date first</small></div></div>
+  <div class="og"><label>Date</label><input type="date" id="bdt" min="${ymd(new Date())}" max="${AV.days[AV.days.length-1].date}"></div>
+  <div class="og"><label>Time</label><select id="btm" disabled><option value="">Choose a date first</option></select><small id="bhint" class="mu"></small></div>
   <div class="og"><label>Size and placement</label><input id="bp" maxlength="100" placeholder="e.g. forearm, about 4 inch"></div>
   <div class="og"><label>Notes (optional)</label><textarea id="bn" rows="2" maxlength="500"></textarea></div>
   <div class="og"><label>Your name</label><input id="bnm" maxlength="60" autocomplete="name"></div>
   <div class="og"><label>Mobile number</label><input id="bph" inputmode="tel" autocomplete="tel" placeholder="10-digit number"></div>
   <div class="er" id="be"></div><button class="bt dk" id="bsend">Request booking</button></div>`;
-  let sd='',st='';const on=(box,b)=>box.querySelectorAll('.ch').forEach(x=>x.classList.toggle('on',x===b));
-  $('#bdt').onclick=e=>{const b=e.target.closest('[data-d]');if(!b)return;sd=b.dataset.d;st='';on($('#bdt'),b);const day=AV.days.find(x=>x.date===sd);
-    $('#btm').innerHTML=day.slots.map(s=>`<button type="button" class="ch" data-t="${s.time}"${s.left<1?' disabled':''}>${fT(s.time)}</button>`).join('');};
-  $('#btm').onclick=e=>{const b=e.target.closest('[data-t]');if(!b||b.disabled)return;st=b.dataset.t;on($('#btm'),b);};
+  let sd='',st='';
+  $('#bdt').onchange=e=>{sd=e.target.value;st='';const day=AV.days.find(x=>x.date===sd),tm=$('#btm'),h=$('#bhint');
+    if(day){tm.disabled=false;tm.innerHTML='<option value="">Choose a time</option>'+day.slots.map(x=>`<option value="${x.time}"${x.left<1?' disabled':''}>${fT(x.time)}${x.left<1?' (full)':''}</option>`).join('');h.textContent='';}
+    else{tm.disabled=true;tm.innerHTML='<option value="">No times available</option>';const nx=sd&&AV.days.find(x=>x.date>sd);h.innerHTML=!sd?'':nx?`No free times on this day. Next available: <a href="#" data-nx="${nx.date}">${fD(nx.date)}</a>`:'No free times on this day.';}};
+  $('#bhint').onclick=e=>{const a=e.target.closest('[data-nx]');if(a){e.preventDefault();$('#bdt').value=a.dataset.nx;$('#bdt').dispatchEvent(new Event('change'));}};
+  $('#btm').onchange=e=>{st=e.target.value;};
   $('#bsend').onclick=async e=>{const b=e.target,er=$('#be'),nm=$('#bnm').value.trim(),ph=$('#bph').value.replace(/\D/g,'').replace(/^0+/,'');er.textContent='';
     if(!sd||!st)return er.textContent='Please choose a date and a time.';if(nm.length<2)return er.textContent='Please enter your name.';if(!/^(91)?[6-9]\d{9}$/.test(ph))return er.textContent='Please enter a valid 10-digit mobile number.';
     b.disabled=true;b.textContent='Sending…';const des=$('#bd').value;
