@@ -58,3 +58,5 @@ dialog{background:#141415}.spec tr:nth-child(odd) td{background:#1a1a1c}
 textarea{font:inherit;color:inherit;background:#18181a;border:1px solid var(--bd);border-radius:18px;padding:10px 16px;max-width:100%;resize:vertical}textarea:focus{outline:0;border-color:var(--pe)}
 .chs{display:flex;flex-wrap:wrap;gap:8px}.ch{padding:8px 14px;border-radius:99px;border:1px solid var(--bd);background:#18181a;font:inherit;color:var(--ink);cursor:pointer}.ch.on{background:var(--pe2);border-color:var(--pe);font-weight:700}.ch:disabled{opacity:.35;text-decoration:line-through;cursor:default}
 .er{color:#ff8a8a;font-size:14px}.bt.dk{margin-top:0}@media(min-width:760px){#bk{width:min(560px,92vw)}}
+
+.og a{color:var(--ink);font-weight:700}
