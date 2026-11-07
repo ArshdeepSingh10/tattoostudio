@@ -38,4 +38,5 @@ dialog{border:0;padding:0;background:var(--sf);color:var(--ink);width:100%;max-w
 #bf{display:flex;gap:8px;overflow-x:auto;padding:16px 0 8px;scrollbar-width:none}#bf::-webkit-scrollbar{display:none}.pl{flex:none;border:1px solid var(--bd);background:#fff;border-radius:99px;padding:8px 16px;font:inherit;font-weight:600;color:var(--ink);cursor:pointer}.pl.on{background:var(--pe2);border-color:var(--pe)}
 .bl{display:grid;gap:12px;padding:8px 0 40px;grid-template-columns:minmax(0,1fr)}@media(min-width:900px){.bl{grid-template-columns:1fr 1fr}}
 .bc{background:#fff;border-radius:22px;padding:16px 18px;box-shadow:var(--sh);display:grid;gap:6px;min-width:0}.bh{display:flex;justify-content:space-between;align-items:center;gap:8px}.bm{display:flex;flex-wrap:wrap;gap:4px 14px;color:var(--mu);font-size:14px}.bm a{color:var(--ink);font-weight:600}.bc p{margin:0;overflow-wrap:anywhere}.ba{display:flex;flex-wrap:wrap;gap:8px;padding-top:6px}
+.mb{width:100%;min-height:140px;resize:vertical;line-height:1.5}#cf .cfm p{color:var(--ink)}#cf .sr{margin:8px 0}
 body[data-v=b] #addb,body[data-v=b] #exp,body[data-v=b] #tpl,body[data-v=b] .imp{display:none}
