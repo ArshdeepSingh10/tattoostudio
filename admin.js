@@ -19,7 +19,7 @@ $('#lb').onclick=e=>go(e.target,async()=>{$('#le').textContent='';
     if(!d.ok)throw new Error(d.error);sessionStorage.tok=d.token;start();}catch(x){$('#le').textContent=x.message;}});
 $('#pw').onkeydown=e=>{if(e.key==='Enter')$('#lb').click();};
 $('#lo').onclick=()=>{sessionStorage.removeItem('tok');location.reload();};
-function start(){$('#login').hidden=true;$('#app').hidden=false;$('#sn').textContent=C.SHOP_NAME+' – Admin';$('#st').innerHTML='<div class="sk" style="height:76px"></div>'.repeat(4);$('#tb').innerHTML='<tbody>'+'<tr><td colspan="7"><div class="sk" style="height:48px"></div></td></tr>'.repeat(5)+'</tbody>';refresh().catch(e=>toast(e.message,1));}
+function start(){loadB().catch(()=>{});$('#login').hidden=true;$('#app').hidden=false;$('#sn').textContent=C.SHOP_NAME+' – Admin';$('#st').innerHTML='<div class="sk" style="height:76px"></div>'.repeat(4);$('#tb').innerHTML='<tbody>'+'<tr><td colspan="7"><div class="sk" style="height:48px"></div></td></tr>'.repeat(5)+'</tbody>';refresh().catch(e=>toast(e.message,1));}
 function renderAll(){
   const cm={};prods.forEach(p=>{const k=p.category||'Uncategorized';cm[k]=(cm[k]||0)+1;});cats=Object.entries(cm).sort((x,y)=>y[1]-x[1]);
   $('#st').innerHTML=`<div><b>${prods.length}</b>Designs</div><div><b>${prods.filter(p=>p.stock>0&&p.stock<5).length}</b>Few slots left</div><div><b>${prods.filter(p=>p.stock<=0).length}</b>Fully booked</div><button class="cc" id="cats"><b>${cats.length}</b>Styles · View all</button>`;
@@ -104,3 +104,32 @@ function openCats(){const d=$('#cd');
   d.innerHTML=`<div class="dp"><h3>Styles (${cats.length})</h3><input id="cq" class="s" type="search" placeholder="Search styles" style="width:100%"><div id="cl" class="cl"></div></div>`;
   const paint=()=>{const q=$('#cq').value.toLowerCase();$('#cl').innerHTML='<button class="cr" data-c=""><span>All designs</span></button>'+(cats.filter(c=>c[0].toLowerCase().includes(q)).map(c=>`<button class="cr" data-c="${esc(c[0])}"><span>${esc(c[0])}</span><span class="pill">${c[1]}</span></button>`).join('')||'<p class="mu">No style found.</p>');};
   paint();$('#cq').oninput=paint;$('#cl').onclick=e=>{const b=e.target.closest('button');if(b){setCat(b.dataset.c);d.close();}};d.showModal();}
+
+// ---- bookings
+let bks=[],BF='Pending',view='d';
+const wn=p=>p.length===10?'91'+p:p;
+const fD=d=>new Date(d+'T12:00').toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'}),fT=t=>new Date('2000-01-01T'+t).toLocaleTimeString('en-IN',{hour:'numeric',minute:'2-digit'});
+const fill=(s,x)=>s.replace(/\{(\w+)\}/g,(m,k)=>({name:x.name,date:fD(x.date),time:fT(x.time),design:x.design||'your tattoo',studio:C.SHOP_NAME,site:C.SITE_URL||''}[k]??m));
+function tab(v){view=v;document.body.dataset.v=v;$('#vd').hidden=v!=='d';$('#vb').hidden=v!=='b';$('#t1').classList.toggle('on',v==='d');$('#t2').classList.toggle('on',v==='b');if(v==='b')loadB().catch(e=>toast(e.message,1));}
+$('#t1').onclick=()=>tab('d');$('#t2').onclick=()=>tab('b');
+async function loadB(){bks=await api('bookings');renderB();}
+setInterval(()=>{if(!document.hidden&&view==='b'&&sessionStorage.tok&&!document.querySelector('dialog[open]'))loadB().catch(()=>{});},30000);
+function renderB(){
+  const F={Pending:['Pending'],Confirmed:['Confirmed'],Closed:['Declined','Cancelled','Completed'],All:null},n=v=>bks.filter(x=>v.includes(x.status)).length,pn=n(['Pending']);
+  $('#pn').hidden=!pn;$('#pn').textContent=pn;
+  $('#bf').innerHTML=Object.entries(F).map(([k,v])=>`<button class="pl${BF===k?' on':''}" data-f="${k}">${k}${v?` (${n(v)})`:''}</button>`).join('');
+  const l=bks.filter(x=>!F[BF]||F[BF].includes(x.status));if(BF==='Confirmed')l.sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+  $('#bl').innerHTML=l.length?l.map(x=>{const taken=x.status==='Pending'&&bks.some(y=>y.status==='Confirmed'&&y.date===x.date&&y.time===x.time),id=`data-id="${esc(x.id)}"`;
+    const btn=x.status==='Pending'?`<button class="btn" data-a="ok" ${id}>Confirm</button><button class="btn alt" data-a="no" ${id}>Decline</button>`:x.status==='Confirmed'?`<button class="btn alt" data-a="msg" ${id}>Message</button><button class="btn" data-a="done" ${id}>Mark done</button><button class="btn red" data-a="cancel" ${id}>Cancel</button>`:`<button class="btn alt" data-a="msg" ${id}>Message</button>`;
+    return `<div class="bc"><div class="bh"><b>${esc(x.name)}</b><span class="pill ${{Pending:'y',Confirmed:'g',Declined:'r',Cancelled:'r'}[x.status]||''}">${esc(x.status)}</span></div>
+    <div class="bm"><span>${fD(x.date)} · ${fT(x.time)}</span><span>${esc(x.design||'Own idea')}</span><a href="tel:${esc(x.phone)}">${esc(x.phone)}</a></div>${x.placement?`<small>${esc(x.placement)}</small>`:''}${x.notes?`<p class="mu">${esc(x.notes)}</p>`:''}${taken?'<small class="err">Another booking is already confirmed at this time.</small>':''}<div class="ba">${btn}</div></div>`;}).join(''):`<div class="msg">No ${BF==='All'?'':BF.toLowerCase()+' '}bookings.</div>`;
+}
+$('#bf').onclick=e=>{const b=e.target.closest('[data-f]');if(b){BF=b.dataset.f;renderB();}};
+function waOpen(x,tpl,w){const u=`https://wa.me/${wn(x.phone)}?text=${encodeURIComponent(fill(C.MSG[tpl],x))}`;
+  if(w&&!w.closed)w.location.href=u;else ask('Message ready',`Open WhatsApp to send the message to ${x.name}.`,'Open WhatsApp').then(ok=>ok&&window.open(u,'_blank'));}
+$('#bl').onclick=async e=>{const b=e.target.closest('[data-a]');if(!b)return;const x=bks.find(y=>y.id===b.dataset.id),a=b.dataset.a;if(!x)return;
+  if(a==='msg')return waOpen(x,'reminder');
+  const M={ok:['Confirmed','confirm','Booking confirmed'],no:['Declined','decline','Booking declined'],cancel:['Cancelled','cancel','Booking cancelled'],done:['Completed',null,'Marked as completed']},[st,tpl,done]=M[a];
+  if(a==='no'||a==='cancel'){const ok=await ask(a==='no'?'Decline this booking?':'Cancel this booking?',`${x.name} · ${fD(x.date)} at ${fT(x.time)}`,a==='no'?'Decline':'Cancel booking');if(!ok)return;}
+  const w=tpl?window.open('','_blank'):null;   // opened now so the browser does not block the WhatsApp tab
+  go(b,async()=>{try{await api('setBooking',{id:x.id,status:st});x.status=st;renderB();toast(done);if(tpl)waOpen(x,tpl,w);}catch(err){if(w)w.close();throw err;}});};
