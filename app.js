@@ -73,28 +73,41 @@ async function openB(des=''){
 function formB(des){
   const d=$('#bk');
   if(!AV.days.length){d.innerHTML=`<button class="x" data-x aria-label="Close">×</button><div class="dp"><h2>Book an appointment</h2><p class="mu">No free times are showing right now. Please message the studio.</p><a class="bt wa" href="https://wa.me/${C.WHATSAPP}" target="_blank" rel="noopener">Message on WhatsApp</a></div>`;return;}
-  d.innerHTML=`<button class="x" data-x aria-label="Close">×</button><div class="dp"><h2>Book an appointment</h2><p class="mu">Pick a date and time. Your request is confirmed only when the studio replies.</p>
+  d.innerHTML=`<button class="x" data-x aria-label="Close">×</button><div class="dp" id="bform"><h2>Book an appointment</h2><p class="mu">Pick a date and time. Your request is confirmed only when the studio replies.</p>
   <div class="og"><label>Design</label><select id="bd"><option value="">My own idea / not sure yet</option>${P.map(p=>`<option${p.name===des?' selected':''}>${esc(p.name)}</option>`).join('')}</select></div>
   <div class="og"><label>Date</label><input type="date" id="bdt" min="${ymd(new Date())}" max="${AV.days[AV.days.length-1].date}"></div>
-  <div class="og"><label>Time</label><select id="btm" disabled><option value="">Choose a date first</option></select><small id="bhint" class="mu"></small></div>
+  <div class="og"><label>Time</label><select id="btm" disabled><option value="">Choose a date first</option></select><input type="time" id="bct" hidden aria-label="Your preferred time"><small id="bhint" class="mu"></small></div>
   <div class="og"><label>Size and placement</label><input id="bp" maxlength="100" placeholder="e.g. forearm, about 4 inch"></div>
   <div class="og"><label>Notes (optional)</label><textarea id="bn" rows="2" maxlength="500"></textarea></div>
   <div class="og"><label>Your name</label><input id="bnm" maxlength="60" autocomplete="name"></div>
   <div class="og"><label>Mobile number</label><input id="bph" inputmode="tel" autocomplete="tel" placeholder="10-digit number"></div>
-  <div class="er" id="be"></div><button class="bt dk" id="bsend">Request booking</button></div>`;
+  <div class="er" id="be"></div><button class="bt dk" id="bsend">Review request</button></div><div class="dp" id="brev" hidden></div>`;
   let sd='',st='';
   $('#bdt').onchange=e=>{sd=e.target.value;st='';const day=AV.days.find(x=>x.date===sd),tm=$('#btm'),h=$('#bhint');
-    if(day){tm.disabled=false;tm.innerHTML='<option value="">Choose a time</option>'+day.slots.map(x=>`<option value="${x.time}"${x.left<1?' disabled':''}>${fT(x.time)}${x.left<1?' (full)':''}</option>`).join('');h.textContent='';}
-    else{tm.disabled=true;tm.innerHTML='<option value="">No times available</option>';const nx=sd&&AV.days.find(x=>x.date>sd);h.innerHTML=!sd?'':nx?`No free times on this day. Next available: <a href="#" data-nx="${nx.date}">${fD(nx.date)}</a>`:'No free times on this day.';}};
+    if(day){tm.disabled=false;tm.innerHTML='<option value="">Choose a time</option>'+day.slots.map(x=>`<option value="${x.time}"${x.left<1?' disabled':''}>${fT(x.time)}${x.left<1?' (full)':''}</option>`).join('')+'<option value="__c">Other time (enter your own)</option>';h.textContent='';}
+    else{tm.disabled=!sd;tm.innerHTML=sd?'<option value="">No free slots, choose below</option><option value="__c">Other time (enter your own)</option>':'<option value="">Choose a date first</option>';const nx=sd&&AV.days.find(x=>x.date>sd);h.innerHTML=!sd?'':nx?`No free slots on this day. Next available: <a href="#" data-nx="${nx.date}">${fD(nx.date)}</a>, or request your own time.`:'No free slots on this day. You can request your own time.';}
+    $('#bct').hidden=true;$('#bct').value='';};
   $('#bhint').onclick=e=>{const a=e.target.closest('[data-nx]');if(a){e.preventDefault();$('#bdt').value=a.dataset.nx;$('#bdt').dispatchEvent(new Event('change'));}};
-  $('#btm').onchange=e=>{st=e.target.value;};
+  $('#btm').onchange=e=>{st=e.target.value;const c=st==='__c';$('#bct').hidden=!c;if(c){st=$('#bct').value;$('#bct').focus();}else $('#bct').value='';
+    if(c)$('#bhint').textContent='Custom times are only confirmed after the studio replies.';else if(sd)$('#bhint').textContent='';};
+  $('#bct').oninput=e=>{st=e.target.value;};
   $('#bsend').onclick=async e=>{const b=e.target,er=$('#be'),nm=$('#bnm').value.trim(),ph=$('#bph').value.replace(/\D/g,'').replace(/^0+/,'');er.textContent='';
     if(!sd||!st)return er.textContent='Please choose a date and a time.';if(nm.length<2)return er.textContent='Please enter your name.';if(!/^(91)?[6-9]\d{9}$/.test(ph))return er.textContent='Please enter a valid 10-digit mobile number.';
-    b.disabled=true;b.textContent='Sending…';const des=$('#bd').value;
-    try{const r=await post({action:'book',name:nm,phone:ph,design:des,placement:$('#bp').value,notes:$('#bn').value,date:sd,time:st});sentB(r.id,nm,sd,st,des);}
-    catch(x){er.textContent=x.message;b.disabled=false;b.textContent='Request booking';}};
+    if(sd===ymd(new Date())&&st<new Date().toTimeString().slice(0,5))return er.textContent='That time has already passed. Please choose a later time.';
+    const des=$('#bd').value,pl=$('#bp').value.trim(),custom=$('#btm').value==='__c',
+      def=`Hi, I'd like to book ${des?'the "'+des+'" design':'a tattoo'} on ${fD(sd)} at ${fT(st)}${pl?'. Size and placement: '+pl:''}. Name: ${nm}.`;
+    // review step: show the booking and the WhatsApp message, let the customer edit it, then send
+    const rv=$('#brev');$('#bform').hidden=true;rv.hidden=false;
+    rv.innerHTML=`<h2>Check your request</h2><div class="og"><label>Summary</label><p><b>${fD(sd)} at ${fT(st)}</b>${custom?' <small class="mu">(your own time, needs studio approval)</small>':''}<br>${esc(des||'My own idea / not sure yet')}${pl?'<br>'+esc(pl):''}<br>${esc(nm)} · ${esc(ph)}</p></div>
+    <div class="og"><label>Message to the studio (you can edit it)</label><textarea id="bmsg" rows="5" maxlength="600"></textarea><small class="mu">You can send this on WhatsApp after your request is saved.</small></div>
+    <div class="er" id="be2"></div><button class="bt dk" id="bok">Confirm and send request</button><button class="bt" id="bback">Back</button>`;
+    $('#bmsg').value=def;
+    $('#bback').onclick=()=>{rv.hidden=true;$('#bform').hidden=false;};
+    $('#bok').onclick=async ev=>{const b2=ev.target,e2=$('#be2'),msg=$('#bmsg').value.trim()||def;e2.textContent='';b2.disabled=true;b2.textContent='Sending…';
+      try{const r=await post({action:'book',name:nm,phone:ph,design:des,placement:pl,notes:$('#bn').value,date:sd,time:st,customTime:custom,message:msg});sentB(r.id,nm,sd,st,des,msg);}
+      catch(x){e2.textContent=x.message;b2.disabled=false;b2.textContent='Confirm and send request';}};};
 }
-function sentB(id,nm,sd,st,des){
+function sentB(id,nm,sd,st,des,msg){
   $('#bk').innerHTML=`<button class="x" data-x aria-label="Close">×</button><div class="dp"><h2>Request sent</h2><p>Thanks ${esc(nm)}! Your request for <b>${fD(sd)} at ${fT(st)}</b> is <b>pending</b>. It is not confirmed until the studio replies on WhatsApp.</p><p class="mu">Reference: <b>${esc(id)}</b></p>
-  <a class="bt wa" target="_blank" rel="noopener" href="https://wa.me/${C.WHATSAPP}?text=${encodeURIComponent(`Hi, I just requested a booking (ref ${id}) for ${fD(sd)} at ${fT(st)}${des?' - '+des:''}. Name: ${nm}.`)}">Message the studio</a><small class="mu">You can send reference photos in that chat.</small></div>`;
+  <a class="bt wa" target="_blank" rel="noopener" href="https://wa.me/${C.WHATSAPP}?text=${encodeURIComponent(`${msg||`Hi, I just requested a booking for ${fD(sd)} at ${fT(st)}${des?' - '+des:''}. Name: ${nm}.`} (ref ${id})`)}">Send this message on WhatsApp</a><small class="mu">You can send reference photos in that chat.</small></div>`;
 }
